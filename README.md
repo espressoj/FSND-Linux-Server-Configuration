@@ -1,5 +1,10 @@
+
 # FSND-Linux-Server-Configuration
 This document details my process for setting up and configuring a Linux server using AWS Lightsail, Ubuntu, Apache, and WSGI to host a PostgreSQL database-driven python catalog website.  As with most websites and web services, processes and user interfaces change. Some of the instructions here when referencing with Amazon Web Services interfaces may or may not be valid.
+
+**IP Address:** 3.86.203.1
+**SSH Port:** 2200
+**URL to Application:** http://fsnd.3.86.203.1.xip.io/
 
 ## Amazon Lightsail Setup
 1. Access Amazon Lightsail's website (https://lightsail.aws.amazon.com), create an account or log into an existing account.
@@ -42,6 +47,7 @@ root@ip-xx-xxx-xxx-x:$ nano /etc/ssh/sshd_config
 * Go back into the previous file to change the standard SSH port (22) to a non-standard port (2200).
 ```$ sudo nano /etc/ssh/sshd_config```
 * Change ```Port 22``` to ```Port 2200```
+* Use CTRL+X and Y to save and close.
  ***NOTE**: Check to make sure the firewall (see below) is either disabled first, or that port 2200 is allowed.*
 * Restart SSH ```$ sudo service ssh restart```
 * Log out of SSH ```$ logout```
@@ -119,13 +125,106 @@ Once you have properly enabled your firewall, you need to remove access to SSH t
 Once you have reviewed all of the changes to users, login, and authentication, restart the the SSH service ```$ sudo service ssh restart```.
 
 ### Install/Update/Remove Packages
-
-```$ sudo apt-get install apache2```
-
-```$ sudo apt-get install libapache2-mod-wsgi python-dev```
-
 ```$ sudo apt-get install git```
-
 ```$ sudo apt-get install python-pip```
-
 ```$ sudo pip install virtualenv```
+
+### Configure Timezone for UTC
+Set the timezone to UTC with the following command: ```$ sudo timedatectl set-timezone UTC```. Then download and install NTP ```$ sudo apt-get install ntp```. This will make sure to regularly adjust the time to endure that no large time gaps occur. 
+
+## Apache and WSGI Config
+Install Apache and configure it to run your Python application using mod_wsgi.
+```$ sudo apt-get install apache2```
+```$ sudo apt-get install libapache2-mod-wsgi python-dev```
+* Confirm that Apache is successfully installed by going to your AWS Lightsail instance's public IP in your web browser.  You should see the default Apache "It works" page. 
+* Enable mod_wsgi ```$ sudo a2enmod wsgi``` 
+* Restart the Apache web server by ```$ sudo service apache2 restart```
+* Back in your SSH terminal, create a new folder for your Python website.
+```
+$ cd /var/www
+$ sudo mkdir catalog
+```
+* Make the grader user the owner and make it a recursive (-R) ownership. Then cd to that directory
+```
+$ sudo chown -R grader:grader catalog
+$ cd catalog
+```
+* Clone your GitHub repository containing your catalog website.
+```$ git clone [GitHub Repository URL] catalog```
+*Note: My repository is located at https://github.com/espressoj/fsnd-catalog-project.git*
+*Note: The location of the cloned files will now be /var/www/catalog/catalog/*
+* Create a .wsgi file so that the python website can be produced by Apache.
+```
+$ cd /var/www/catalog/
+$ sudo nano catalog.wsgi
+```
+* Enter the following into the catalog.wsgi file.
+```
+#!/usr/bin/python
+import sys
+import logging
+logging.basicConfig(stream=sys.stderr)
+sys.path.insert(0, "/var/www/catalog/")
+
+from catalog import app as application
+application.secret_key = '[CHANGE THIS TO A LARGE RANDOM STRING - APP SECRET KEY]'
+```
+* Change the primary python file of the website from "views.py" to ```__init__.py```
+```$ mv views.py __init__.py```
+* Install python-pip
+```$ sudo apt-get install python-pip```
+* Install and configure the virtual environment (venv).
+ ```
+$ sudo pip install virtualenv
+$ sudo virtualenv venv
+$ source venv/bin/activate
+$ sudo chmod -R 777 venv
+```
+*Note: For more information on virtual environments see https://www.pythonforbeginners.com/basics/how-to-use-python-virtualenv and/or http://flask.pocoo.org/docs/0.12/installation/*
+* Install the necessary Python packages to run your website.
+```
+$ sudo pip install Flask httplib2 oauth2client sqlalchemy psycopg2 sqlaclemy_utils requests
+$ sudo pip install json logging datetime itsdangerous
+```
+* Adjust the client_secrets.json path in the ```__init__.py``` file so that it can be found using the full path of its new location. Modify it as follows:
+```/var/www/catalog/catalog/client_secrets.json```
+* Change references to the app running on an incorrect IP or port in your ```__init__.py``` file.
+```app.run(host='0.0.0.0', port=8000) ``` to ```app.run()```
+* Access the virtual hosts directory and add the catalog.conf file.
+```
+$ cd /etc/apache2/sites-available
+$ sudo nano catalog.conf
+```
+Add the following code to that catalog.conf file:
+```
+<VirtualHost *:80>
+	ServerName [REPLACE ME WITH YOUR SERVER'S EXTERNAL IP]
+	ServerAlias http:[REPLACE ME]
+	ServerAdmin admin@[EXTERNAL IP]
+	WSGIDaemonProcess catalog python-path=/var/www/catalog:/var/www/catalog/venv/lib/python2.7/site-packages
+	WSGIProcessGroup catalog
+	WSGIScriptAlias / /var/www/catalog/catalog.wsgi
+	WSGIScriptReloading On
+	<Directory /var/www/catalog/catalog/>
+		Order allow,deny
+		Allow from all
+	</Directory>
+	Alias /static /var/www/catalog/catalog/static
+	<Directory /var/www/catalog/catalog/static/>
+		Order allow,deny
+		Allow from all
+	</Directory>
+	ErrorLog ${APACHE_LOG_DIR}/error.log
+	LogLevel info
+	CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+```
+* Replace the [BRACKETED INFORMATION] above with your own server information.
+* You can find the ServerAlias using the following: http://www.hcidata.info/host2ip.cgi.
+* Use CTRL+X and "Y" to save and close.
+ 
+## References and Resources...
+* https://github.com/jaysimonkay/Linux-Configuration
+* https://www.howtoforge.com/tutorial/how-to-run-python-scripts-with-apache-and-mod_wsgi-on-ubuntu-18-04/
+* http://flask.pocoo.org/docs/0.12/deploying/mod_wsgi/
+* https://www.jakowicz.com/flask-apache-wsgi/

@@ -239,7 +239,7 @@ Add the following code to that catalog.conf file:
 	CustomLog ${APACHE_LOG_DIR}/access.log combined
 </VirtualHost>
 ```
-*This code was modified from https://github.com/jaysimonkay/Linux-Configuration *
+*This code was modified from https://github.com/jaysimonkay/Linux-Configuration*
 
 * Replace the [BRACKETED INFORMATION] above with your own server information.
 * You can find the ServerAlias using the following: http://www.hcidata.info/host2ip.cgi.

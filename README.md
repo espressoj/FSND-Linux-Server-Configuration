@@ -35,6 +35,14 @@ Is the information correct? [Y/n] Y
 $ 
 ```
 * Give the *grader* account *sudo* access: ```$ sudo usermod -aG sudo grader```
+* Add *grader* account to the sudoers file and force no password.
+```
+$ sudo visudo
+```
+* At the bottom of the file add the following line of code, save and exit the file:
+```
+grader ALL=(ALL) NOPASSWD: ALL
+```
 * Change over to the *root* account  to modify the config and remove root access.
  ```
 $ sudo -s

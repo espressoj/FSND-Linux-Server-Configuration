@@ -113,16 +113,18 @@ Rule deleted (v6)
 ### Force Key-based Authentication
 Once you have properly enabled your firewall, you need to remove access to SSH through the use of a password. This requires key-based authentication.  
 * To generate you public and private SSH key pair, follow the instructions at [https://confluence.atlassian.com/bitbucketserver/creating-ssh-keys-776639788.html](https://confluence.atlassian.com/bitbucketserver/creating-ssh-keys-776639788.html)
-* Take note of the name and location of the public key and, in a web browser, access your AWS Lightsail account.
+* **Take note of the name and location of the public and private key pair** and, in a web browser, access your AWS Lightsail account.  ```$ ls -al ~/.ssh```
 * In the Account area, select *SSH Keys* and click the *Upload new* icon.
-* Upload the .pub key generated in the previous steps.
+* Upload the public key (.pub) generated in the previous steps.
 * In your terminal, edit the permissions on the /home/grader/.ssh folder ```$ sudo chmod 700 ~/.ssh``` and the authorized_keys file inside ```$ sudo chmod 644 ~/.ssh/authorized_keys``` .
 * Once again, go back into the sshd_config file to force key-based authentication: ```sudo nano /etc/ssh/sshd_config```
 * Edit  ```PasswordAuthentication yes``` to ```PasswordAuthentication no```
 * Save and exit the sshd_config file using CTRL+X and Y.
 
 ### SSH Service Restart
-Once you have reviewed all of the changes to users, login, and authentication, restart the the SSH service ```$ sudo service ssh restart```.
+* Once you have reviewed all of the changes to users, login, and authentication, restart the the SSH service ```$ sudo service ssh restart```.
+* Log back into SSH using your private key.
+```$ ssh grader@[SERVER'S PUBLIC IP] -p 2200 -i [FULL PATH TO\PRIVATE KEY NAME]```
 
 ### Install/Update/Remove Packages
 ```$ sudo apt-get install git```
@@ -132,74 +134,82 @@ Once you have reviewed all of the changes to users, login, and authentication, r
 ### Configure Timezone for UTC
 Set the timezone to UTC with the following command: ```$ sudo timedatectl set-timezone UTC```. Then download and install NTP ```$ sudo apt-get install ntp```. This will make sure to regularly adjust the time to endure that no large time gaps occur. 
 
-## Apache and WSGI Config
-Install Apache and configure it to run your Python application using mod_wsgi.
-```$ sudo apt-get install apache2```
-```$ sudo apt-get install libapache2-mod-wsgi python-dev```
+#### Linux Configuration References and Resources
+* https://www.digitalocean.com/community/tutorials/how-to-create-a-sudo-user-on-ubuntu-quickstart
+
+## Apache, Mod_WSGI, and Database Config
+### Install and Configure Apache
+* Install Apache and configure it to run your Python application using mod_wsgi.
+	```
+	$ sudo apt-get install apache2
+	$ sudo apt-get install libapache2-mod-wsgi python-dev
+	```
 * Confirm that Apache is successfully installed by going to your AWS Lightsail instance's public IP in your web browser.  You should see the default Apache "It works" page. 
 * Enable mod_wsgi ```$ sudo a2enmod wsgi``` 
 * Restart the Apache web server by ```$ sudo service apache2 restart```
 * Back in your SSH terminal, create a new folder for your Python website.
-```
-$ cd /var/www
-$ sudo mkdir catalog
-```
-* Make the grader user the owner and make it a recursive (-R) ownership. Then cd to that directory
-```
-$ sudo chown -R grader:grader catalog
-$ cd catalog
-```
+	```
+	$ cd /var/www
+	$ sudo mkdir catalog
+	```
+* Make the "grader" user the owner and make it a recursive (-R) ownership. Then cd to that directory.
+	```
+	$ sudo chown -R grader:grader catalog
+	$ cd catalog
+	```
 * Clone your GitHub repository containing your catalog website.
 ```$ git clone [GitHub Repository URL] catalog```
 *Note: My repository is located at https://github.com/espressoj/fsnd-catalog-project.git*
 *Note: The location of the cloned files will now be /var/www/catalog/catalog/*
-* Create a .wsgi file so that the python website can be produced by Apache.
-```
-$ cd /var/www/catalog/
-$ sudo nano catalog.wsgi
-```
-* Enter the following into the catalog.wsgi file.
-```
-#!/usr/bin/python
-import sys
-import logging
-logging.basicConfig(stream=sys.stderr)
-sys.path.insert(0, "/var/www/catalog/")
 
-from catalog import app as application
-application.secret_key = '[CHANGE THIS TO A LARGE RANDOM STRING - APP SECRET KEY]'
-```
+### Install and Configure Mod_WSGI
+* Create a .wsgi file so that the python website can be produced by Apache.
+	```
+	$ cd /var/www/catalog/
+	$ sudo nano catalog.wsgi
+	```
+* Enter the following into the catalog.wsgi file.
+	```
+	#!/usr/bin/python
+	import sys
+	import logging
+	logging.basicConfig(stream=sys.stderr)
+	sys.path.insert(0, "/var/www/catalog/")
+
+	from catalog import app as application
+	application.secret_key = '[CHANGE THIS TO A LARGE RANDOM STRING - APP SECRET KEY]'
+	```
 * Change the primary python file of the website from "views.py" to ```__init__.py```
 ```$ mv views.py __init__.py```
 * Install python-pip
 ```$ sudo apt-get install python-pip```
 * Install and configure the virtual environment (venv).
- ```
-$ sudo pip install virtualenv
-$ sudo virtualenv venv
-$ source venv/bin/activate
-$ sudo chmod -R 777 venv
-```
+	 ```
+	$ sudo pip install virtualenv
+	$ sudo virtualenv venv
+	$ source venv/bin/activate
+	$ sudo chmod -R 777 venv
+	```
 *Note: For more information on virtual environments see https://www.pythonforbeginners.com/basics/how-to-use-python-virtualenv and/or http://flask.pocoo.org/docs/0.12/installation/*
 * Install the necessary Python packages to run your website.
-```
-$ sudo pip install Flask httplib2 oauth2client sqlalchemy psycopg2 sqlaclemy_utils requests
-$ sudo pip install json logging datetime itsdangerous
-```
+	```
+	$ sudo pip install Flask httplib2 oauth2client sqlalchemy psycopg2 sqlaclemy_utils requests
+	$ sudo pip install json logging datetime itsdangerous
+	```
 * Adjust the client_secrets.json path in the ```__init__.py``` file so that it can be found using the full path of its new location. Modify it as follows:
-```/var/www/catalog/catalog/client_secrets.json```
+	```/var/www/catalog/catalog/client_secrets.json```
 * Change references to the app running on an incorrect IP or port in your ```__init__.py``` file.
-```app.run(host='0.0.0.0', port=8000) ``` to ```app.run()```
+	```app.run(host='0.0.0.0', port=8000) ``` to ```app.run()```
 * Access the virtual hosts directory and add the catalog.conf file.
-```
-$ cd /etc/apache2/sites-available
-$ sudo nano catalog.conf
-```
+	```
+	$ cd /etc/apache2/sites-available
+	$ sudo nano catalog.conf
+	```
 Add the following code to that catalog.conf file:
 ```
 <VirtualHost *:80>
 	ServerName [REPLACE ME WITH YOUR SERVER'S EXTERNAL IP]
-	ServerAlias http:[REPLACE ME]
+	ServerAlias http://[REPLACE ME]
 	ServerAdmin admin@[EXTERNAL IP]
 	WSGIDaemonProcess catalog python-path=/var/www/catalog:/var/www/catalog/venv/lib/python2.7/site-packages
 	WSGIProcessGroup catalog
@@ -222,9 +232,84 @@ Add the following code to that catalog.conf file:
 * Replace the [BRACKETED INFORMATION] above with your own server information.
 * You can find the ServerAlias using the following: http://www.hcidata.info/host2ip.cgi.
 * Use CTRL+X and "Y" to save and close.
- 
-## References and Resources...
-* https://github.com/jaysimonkay/Linux-Configuration
+
+#### Apache and Mod_WSGI References and Resources
 * https://www.howtoforge.com/tutorial/how-to-run-python-scripts-with-apache-and-mod_wsgi-on-ubuntu-18-04/
 * http://flask.pocoo.org/docs/0.12/deploying/mod_wsgi/
 * https://www.jakowicz.com/flask-apache-wsgi/
+
+### Install and Configure PostgreSQL Database
+*  From the SSH connection, install PostgreSQL.
+```$ sudo apt-get install postgresql postgresql-contrib```
+* Access the PostgreSQL command line.
+```$ sudo -u postgres psql postgres```
+* Set a password for the default postgres user.
+```
+postgres=# \password postgres
+
+Enter new password: 
+Enter it again: 
+
+postgres=#  
+```
+* Create a database user, confirm its creation.
+```
+postgres=#  CREATE USER catalogaccount WITH PASSWORD '[YOUR PASSWORD HERE]'
+postgres=#  \du
+```
+* Modify the new user's rights and create the database.
+```
+$ ALTER USER catalogaccount CREATEDB
+$ CREATE DATABASE catalog WITH OWNER catalogaccount
+```
+* Connect to the new database and adjust the rights.
+```
+postgres=# \c catalog
+You are now connected to database "catalog" as user "postgres".
+catalog=# REVOKE ALL ON SCHEMA public FROM public
+catalog-# GRANT ALL ON SCHEMA public TO catalogaccount
+```
+The original catalog application uses SQLite as the database system.  This project calls for using PostgreSQL.  Since the two have distinct differences, I used the following process to export data from my SQLite db and upload the data to the new PostreSQL database just created.
+* Download DB Browser for SQLite (https://sqlitebrowser.org/)
+* Find and open the catalog.db file from the catalog project on the machine where DB Browser is installed.
+* Click File --> Export --> Database to SQL File
+* In the table list, de-select sqlite-sequence
+* Check the Multiple rows (Values) per INSERT statement
+* Save the .db file to your local drive.
+* Open the .db file in a text editor
+
+***NOTE:*** PostgreSQL is case-sensitive so be sure to add double-quotes around each table name or data column that uses capitalization.
+
+* Find and replace **ALL** backticks around table names and column names with double-quotes (**"**) 
+(Ex.    ``` `itemCategories` ``` should be ```"itemCategories"```)
+* Change any column types originally set as VARCHAR() to TEXT
+* Change any column types originally set as DATETIME to TIMESTAMP
+
+***NOTE:*** PostgreSQL has several reserved words (https://www.postgresql.org/docs/9.0/sql-keywords-appendix.html), one of which matches the USER table in the original SQLite database.
+
+* Change all references to the USER table to "catalogusers".
+* Order the code so that all tables are created before attempting to process any of the INSERT statements.
+* Save the .db file.
+* Copy and paste the CREATE TABLE statements into your SSH terminal (still logged in to the catalog postgres database) and create the tables.
+* Review the information displayed in the terminal to confirm that the tables were created properly.
+* You can also run the following SQL query to list all tables in the database.
+```
+SELECT 	table_name
+FROM 	information_schema.tables
+WHERE 	table_schema='public' 
+		AND table_type='BASE TABLE';
+```
+* Repeat the copy/paste process with the INSERT statements.
+* Review the information displayed in the terminal to confirm that each table's data were inserted without error.
+
+#### PostgreSQL References and Resources...
+* https://www.digitalocean.com/community/tutorials/how-to-install-and-use-postgresql-on-ubuntu-14-04
+* https://www.digitalocean.com/community/tutorials/how-to-secure-postgresql-on-an-ubuntu-vps 
+* https://help.ubuntu.com/community/PostgreSQL 
+* https://blog.wxperts.com/2012/08/25/postgresql-case-sensitivity-part-1-the-ddl/
+* https://sqlitebrowser.org/
+* https://stackoverflow.com/questions/14730228/postgresql-query-to-list-all-table-names
+* https://www.postgresql.org/docs/9.0/sql-keywords-appendix.html
+
+### Additional References and Resources
+* https://github.com/jaysimonkay/Linux-Configuration

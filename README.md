@@ -3,7 +3,9 @@
 This document details my process for setting up and configuring a Linux server using AWS Lightsail, Ubuntu, Apache, and WSGI to host a PostgreSQL database-driven python catalog website.  As with most websites and web services, processes and user interfaces change. Some of the instructions here when referencing with Amazon Web Services interfaces may or may not be valid.
 
 **IP Address:** 3.86.203.1
+
 **SSH Port:** 2200
+
 **URL to Application:** http://fsnd.3.86.203.1.xip.io/
 
 ## Amazon Lightsail Setup

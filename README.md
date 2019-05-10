@@ -203,8 +203,8 @@ Set the timezone to UTC with the following command: ```$ sudo timedatectl set-ti
 *Note: For more information on virtual environments see https://www.pythonforbeginners.com/basics/how-to-use-python-virtualenv and/or http://flask.pocoo.org/docs/0.12/installation/*
 * Install the necessary Python packages to run your website.
 	```
-	$ sudo pip install Flask httplib2 oauth2client sqlalchemy psycopg2 sqlaclemy_utils requests
-	$ sudo pip install json logging datetime itsdangerous
+	$ sudo pip install Flask httplib2 oauth2client sqlalchemy psycopg2-binary sqlalchemy_utils requests
+	$ sudo pip install logging datetime itsdangerous
 	```
 * Adjust the client_secrets.json path in the ```__init__.py``` file so that it can be found using the full path of its new location. Modify it as follows:
 	```/var/www/catalog/catalog/client_secrets.json```
